@@ -1,0 +1,63 @@
+* TSPC D Flip-Flop Pre-Layout Simulation
+
+.include TSMC_180nm.txt
+
+.param SUPPLY = 1.8
+.param LAMBDA = 0.09u
+.param L_min  = {2 * LAMBDA}
+.param W_N    = {10 * LAMBDA}
+.param W_P    = {20 * LAMBDA}
+
+.param AS_P = {5 * W_P * LAMBDA}
+.param AD_P = {5 * W_P * LAMBDA}
+.param PS_P = {2 * 5 * LAMBDA + W_P}
+.param PD_P = {2 * 5 * LAMBDA + W_P}
+.param AS_N = {5 * W_N * LAMBDA}
+.param AD_N = {5 * W_N * LAMBDA}
+.param PS_N = {2 * 5 * LAMBDA + W_N}
+.param PD_N = {2 * 5 * LAMBDA + W_N}
+
+.global vdd gnd
+Vdd vdd 0 {SUPPLY}
+
+Vclk clk 0 PULSE(0 {SUPPLY} 0 50p 50p 1n 2n)
+
+Vd D 0 PWL(0 0 2.85n 0 2.9n {SUPPLY} 3.15n {SUPPLY} 3.2n 0)
+
+Mp1 mid1 D    vdd vdd CMOSP W={W_P} L={L_min} AS={AS_P} AD={AD_P} PS={PS_P} PD={PD_P}
+Mp2 n1   clk  mid1 vdd CMOSP W={W_P} L={L_min} AS={AS_P} AD={AD_P} PS={PS_P} PD={PD_P}
+Mn1 n1   D    gnd gnd CMOSN W={W_N} L={L_min} AS={AS_N} AD={AD_N} PS={PS_N} PD={PD_N}
+
+Mp3 n2   n1   vdd vdd CMOSP W={W_P} L={L_min} AS={AS_P} AD={AD_P} PS={PS_P} PD={PD_P}
+Mn2 n2   clk  mid2 gnd CMOSN W={W_N} L={L_min} AS={AS_N} AD={AD_N} PS={PS_N} PD={PD_N}
+Mn3 mid2 n1   gnd gnd CMOSN W={W_N} L={L_min} AS={AS_N} AD={AD_N} PS={PS_N} PD={PD_N}
+
+Mp4 Q    n2   vdd vdd CMOSP W={W_P} L={L_min} AS={AS_P} AD={AD_P} PS={PS_P} PD={PD_P}
+Mn4 Q    n2   mid3 gnd CMOSN W={W_N} L={L_min} AS={AS_N} AD={AD_N} PS={PS_N} PD={PD_N}
+Mn5 mid3 clk  gnd gnd CMOSN W={W_N} L={L_min} AS={AS_N} AD={AD_N} PS={PS_N} PD={PD_N}
+
+.subckt InverterLoad in out
+    M1 out in vdd vdd CMOSP W={20*LAMBDA} L={2*LAMBDA}
+    M2 out in gnd gnd CMOSN W={10*LAMBDA} L={2*LAMBDA}
+.ends InverterLoad
+
+XLoad Q Q_load_out InverterLoad
+Cload Q_load_out 0 10f
+
+.tran 10p 6n
+
+.meas tran tcq_rise TRIG v(clk) VAL={SUPPLY/2} RISE=2 TARG v(Q) VAL={SUPPLY/2} RISE=1
+.meas tran t_setup TRIG v(D) VAL={SUPPLY/2} RISE=1 TARG v(clk) VAL={SUPPLY/2} RISE=2
+.meas tran t_hold TRIG v(clk) VAL={SUPPLY/2} RISE=2 TARG v(D) VAL={SUPPLY/2} FALL=1
+
+.control
+    run
+    set curplottitle = "TSPC DFF Pre-Layout Simulation"
+    set hcopypscolor = 1
+    set color0 = white
+    set color1 = black
+    plot v(clk)+4 v(D)+2 v(Q) title 'Clock, Data, Output'
+    hardcopy tspc_dff.eps v(clk)+4 v(D)+2 v(Q)
+.endc
+
+.end

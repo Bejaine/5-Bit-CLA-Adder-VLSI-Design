@@ -1,0 +1,170 @@
+* 5-Bit Carry Look Ahead Adder (Worst Case Delay)
+
+.include TSMC_180nm.txt
+
+.param SUPPLY = 1.8
+.param LAMBDA = 0.09u
+.param L_min = {2*LAMBDA}
+.param W_N = {10*LAMBDA}
+.param W_P = {20*LAMBDA}
+
+.global vdd gnd
+Vdd vdd 0 {SUPPLY}
+
+.subckt my_inv in out
+    Mp out in vdd vdd CMOSP W={W_P} L={L_min}
+    Mn out in gnd gnd CMOSN W={W_N} L={L_min}
+.ends my_inv
+
+.subckt my_nand2 a b out
+    Mp1 out a vdd vdd CMOSP W={W_P} L={L_min}
+    Mp2 out b vdd vdd CMOSP W={W_P} L={L_min}
+    Mn1 out a n1  gnd CMOSN W={2*W_N} L={L_min}
+    Mn2 n1  b gnd gnd CMOSN W={2*W_N} L={L_min}
+.ends my_nand2
+
+.subckt my_nand3 a b c out
+    Mp1 out a vdd vdd CMOSP W={W_P} L={L_min}
+    Mp2 out b vdd vdd CMOSP W={W_P} L={L_min}
+    Mp3 out c vdd vdd CMOSP W={W_P} L={L_min}
+    Mn1 out a n1  gnd CMOSN W={3*W_N} L={L_min}
+    Mn2 n1  b n2  gnd CMOSN W={3*W_N} L={L_min}
+    Mn3 n2  c gnd gnd CMOSN W={3*W_N} L={L_min}
+.ends my_nand3
+
+.subckt my_nand4 a b c d out
+    Mp1 out a vdd vdd CMOSP W={W_P} L={L_min}
+    Mp2 out b vdd vdd CMOSP W={W_P} L={L_min}
+    Mp3 out c vdd vdd CMOSP W={W_P} L={L_min}
+    Mp4 out d vdd vdd CMOSP W={W_P} L={L_min}
+    Mn1 out a n1  gnd CMOSN W={4*W_N} L={L_min}
+    Mn2 n1  b n2  gnd CMOSN W={4*W_N} L={L_min}
+    Mn3 n2  c n3  gnd CMOSN W={4*W_N} L={L_min}
+    Mn4 n3  d gnd gnd CMOSN W={4*W_N} L={L_min}
+.ends my_nand4
+
+.subckt my_and2 a b out
+    X1 a b n_out my_nand2
+    X2 n_out out my_inv
+.ends my_and2
+
+.subckt my_or2 a b out
+    X1 a a_bar my_inv
+    X2 b b_bar my_inv
+    X3 a_bar b_bar out my_nand2
+.ends my_or2
+
+.subckt my_xor2 a b out
+    X1 a b ab_bar my_nand2
+    X2 a ab_bar a_term my_nand2
+    X3 b ab_bar b_term my_nand2
+    X4 a_term b_term out my_nand2
+.ends my_xor2
+
+.subckt load_inv in out
+    Mp out in vdd vdd CMOSP W={W_P} L={L_min}
+    Mn out in gnd gnd CMOSN W={W_N} L={L_min}
+.ends load_inv
+
+.subckt cla_5bit a4 a3 a2 a1 a0 b4 b3 b2 b1 b0 cin s4 s3 s2 s1 s0 cout
+    Xp0 a0 b0 p0 my_xor2
+    Xg0 a0 b0 g0 my_and2
+    Xp1 a1 b1 p1 my_xor2
+    Xg1 a1 b1 g1 my_and2
+    Xp2 a2 b2 p2 my_xor2
+    Xg2 a2 b2 g2 my_and2
+    Xp3 a3 b3 p3 my_xor2
+    Xg3 a3 b3 g3 my_and2
+    Xp4 a4 b4 p4 my_xor2
+    Xg4 a4 b4 g4 my_and2
+
+    X_c1_t1 p0 cin c1_t1 my_and2
+    X_c1    g0 c1_t1 c1 my_or2
+
+    X_c2_t1 p1 g0 c2_t1 my_and2
+    X_c2_t2 p1 p0 cin c2_t2_bar my_nand3  
+    X_c2_t2_inv c2_t2_bar c2_t2 my_inv
+    X_c2_sum1 g1 c2_t1 c2_sum1 my_or2
+    X_c2      c2_sum1 c2_t2 c2 my_or2
+
+    X_c3_t1 p2 g1 c3_t1 my_and2
+    X_c3_t2 p2 p1 g0 c3_t2_bar my_nand3
+    X_c3_t2_inv c3_t2_bar c3_t2 my_inv
+    X_c3_t3 p2 p1 p0 cin c3_t3_bar my_nand4
+    X_c3_t3_inv c3_t3_bar c3_t3 my_inv
+    X_c3_sum1 g2 c3_t1 c3_sum1 my_or2
+    X_c3_sum2 c3_sum1 c3_t2 c3_sum2 my_or2
+    X_c3      c3_sum2 c3_t3 c3 my_or2
+
+    X_c4_t1 p3 g2 c4_t1 my_and2
+    X_c4_t2 p3 p2 g1 c4_t2_bar my_nand3
+    X_c4_t2_inv c4_t2_bar c4_t2 my_inv
+    X_c4_t3 p3 p2 p1 g0 c4_t3_bar my_nand4
+    X_c4_t3_inv c4_t3_bar c4_t3 my_inv
+    X_c4_t4_A p3 p2 p1 t4_partA_bar my_nand3
+    X_c4_t4_B p0 cin   t4_partB_bar my_nand2
+    X_c4_t4_comb t4_partA_bar t4_partB_bar c4_t4_bar my_or2
+    X_c4_t4_inv  c4_t4_bar c4_t4 my_inv
+    X_c4_sum1 g3 c4_t1 c4_sum1 my_or2
+    X_c4_sum2 c4_sum1 c4_t2 c4_sum2 my_or2
+    X_c4_sum3 c4_sum2 c4_t3 c4_sum3 my_or2
+    X_c4      c4_sum3 c4_t4 c4 my_or2
+
+    X_c5_t1 p4 g3 c5_t1 my_and2
+    X_c5_t2 p4 p3 g2 c5_t2_bar my_nand3
+    X_c5_t2_inv c5_t2_bar c5_t2 my_inv
+    X_c5_t3 p4 p3 p2 g1 c5_t3_bar my_nand4
+    X_c5_t3_inv c5_t3_bar c5_t3 my_inv
+    X_c5_t4_A p4 p3 p2 t5_4_A_bar my_nand3
+    X_c5_t4_B p1 g0    t5_4_B_bar my_nand2
+    X_c5_t4   t5_4_A_bar t5_4_B_bar c5_t4_bar my_or2
+    X_c5_t4_i c5_t4_bar c5_t4 my_inv
+    X_c5_t5_A p4 p3 p2 t5_5_A_bar my_nand3
+    X_c5_t5_B p1 p0 cin t5_5_B_bar my_nand3
+    X_c5_t5   t5_5_A_bar t5_5_B_bar c5_t5_bar my_or2
+    X_c5_t5_i c5_t5_bar c5_t5 my_inv
+    X_c5_sum1 g4 c5_t1 c5_sum1 my_or2
+    X_c5_sum2 c5_sum1 c5_t2 c5_sum2 my_or2
+    X_c5_sum3 c5_sum2 c5_t3 c5_sum3 my_or2
+    X_c5_sum4 c5_sum3 c5_t4 c5_sum4 my_or2
+    X_c5      c5_sum4 c5_t5 cout my_or2
+
+    X_s0 p0 cin s0 my_xor2
+    X_s1 p1 c1  s1 my_xor2
+    X_s2 p2 c2  s2 my_xor2
+    X_s3 p3 c3  s3 my_xor2
+    X_s4 p4 c4  s4 my_xor2
+.ends cla_5bit
+
+Vcin cin 0 PULSE(0 1.8 10n 10p 10p 20n 50n)
+
+Va0 a0 0 0
+Va1 a1 0 0
+Va2 a2 0 0
+Va3 a3 0 0
+Va4 a4 0 0
+
+Vb0 b0 0 1.8
+Vb1 b1 0 1.8
+Vb2 b2 0 1.8
+Vb3 b3 0 1.8
+Vb4 b4 0 1.8
+
+Xcla a4 a3 a2 a1 a0 b4 b3 b2 b1 b0 cin s4 s3 s2 s1 s0 cout cla_5bit
+
+XL0 s0 out0_dum load_inv
+XL1 s1 out1_dum load_inv
+XL2 s2 out2_dum load_inv
+XL3 s3 out3_dum load_inv
+XL4 s4 out4_dum load_inv
+XL5 cout outc_dum load_inv
+
+.tran 10p 60n
+
+.control
+    run
+    set curplottitle = "Combinational CLA - Worst Case Delay"
+    plot v(cin) v(cout)
+    meas tran worst_case_delay TRIG v(cin) val=0.9 rise=1 TARG v(cout) val=0.9 rise=1
+.endc
+.end
